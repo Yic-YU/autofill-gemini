@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Resume Autofill (Flash)",
+  "description": "Local-only helper to fill resume data via Gemini Flash.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Resume Autofill",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background/serviceWorker.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/contentMain.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/contentMain.js", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

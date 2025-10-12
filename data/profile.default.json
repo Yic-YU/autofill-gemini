@@ -1,0 +1,31 @@
+{
+  "profileId": "default",
+  "summary": "Sample resume data for local testing.",
+  "fields": [
+    {
+      "key": "full_name",
+      "label": "Full Name",
+      "value": "Jane Doe"
+    },
+    {
+      "key": "email",
+      "label": "Work Email",
+      "value": "jane.doe@example.com"
+    },
+    {
+      "key": "phone",
+      "label": "Mobile Phone",
+      "value": "+86-138-0000-0000"
+    },
+    {
+      "key": "current_title",
+      "label": "Current Title",
+      "value": "Senior Product Manager"
+    },
+    {
+      "key": "summary",
+      "label": "Professional Summary",
+      "value": "Product manager with 8+ years leading cross-functional growth initiatives."
+    }
+  ]
+}
