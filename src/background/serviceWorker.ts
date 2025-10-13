@@ -35,6 +35,8 @@ class ResumeAutofillBackground {
   private siteMemoryCache = new Map<string, SiteMemory>();
 
   async initialize(): Promise<void> {
+    this.setupSidePanel();
+
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       void this.dispatchMessage(message, sender)
         .then((result) => {
@@ -52,6 +54,66 @@ class ResumeAutofillBackground {
       if (area === "local" && changes.options) {
         this.optionsCache = undefined;
         this.profileCache = undefined;
+      }
+    });
+  }
+
+  private setupSidePanel(): void {
+    if (!chrome.sidePanel) {
+      return;
+    }
+
+    const panelUrl = chrome.runtime.getURL("sidepanel.html");
+
+    const ensureEnabled = async (tabId?: number): Promise<void> => {
+      if (tabId === undefined) {
+        return;
+      }
+      try {
+        await chrome.sidePanel!.setOptions({ tabId, path: panelUrl, enabled: true });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn("Failed to enable side panel", error);
+      }
+    };
+
+    const openForTab = async (tabId?: number): Promise<void> => {
+      if (tabId === undefined) {
+        return;
+      }
+      await ensureEnabled(tabId);
+      try {
+        await chrome.sidePanel!.open({ tabId });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn("Failed to open side panel", error);
+      }
+    };
+
+    if (chrome.sidePanel.setPanelBehavior) {
+      void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+    }
+
+    chrome.runtime.onInstalled.addListener(() => {
+      void (async () => {
+        const tabs = await queryTabs({ active: true, currentWindow: true });
+        if (tabs[0]?.id !== undefined) {
+          await openForTab(tabs[0].id);
+        }
+      })();
+    });
+
+    chrome.action.onClicked.addListener(async (tab) => {
+      await openForTab(tab.id);
+    });
+
+    chrome.tabs.onActivated.addListener(({ tabId }) => {
+      void ensureEnabled(tabId);
+    });
+
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (changeInfo.status === "complete" && tab.active) {
+        void ensureEnabled(tabId);
       }
     });
   }
