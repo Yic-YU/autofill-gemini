@@ -1,9 +1,40 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import { resolve, join } from "path";
+import { mkdir, copyFile, readdir, stat } from "fs/promises";
+
+function staticCopyPlugin() {
+  return {
+    name: "static-copy",
+    apply: "build",
+    async closeBundle() {
+      const outDir = resolve(__dirname, "dist");
+      await mkdir(outDir, { recursive: true });
+      await copyFile(resolve(__dirname, "manifest.json"), resolve(outDir, "manifest.json"));
+      await copyDirectory(resolve(__dirname, "data"), resolve(outDir, "data"));
+    }
+  };
+}
+
+async function copyDirectory(source: string, destination: string): Promise<void> {
+  await mkdir(destination, { recursive: true });
+  const entries = await readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = join(source, entry.name);
+    const destPath = join(destination, entry.name);
+    if (entry.isDirectory()) {
+      await copyDirectory(srcPath, destPath);
+    } else if (entry.isFile()) {
+      await copyFile(srcPath, destPath);
+    }
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    staticCopyPlugin()
+  ],
   build: {
     outDir: "dist",
     sourcemap: true,

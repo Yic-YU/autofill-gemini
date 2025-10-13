@@ -1,45 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-
-interface OptionsFormState {
-  apiKey: string;
-  model: string;
-  activeProfile: string;
-  minConfidence: number;
-  maxSummaryChars: number;
-  phoneFormat: string;
-  enableSiteMemory: boolean;
-}
-
-const DEFAULT_STATE: OptionsFormState = {
-  apiKey: "",
-  model: "gemini-1.5-flash-latest",
-  activeProfile: "profile.default.json",
-  minConfidence: 0.6,
-  maxSummaryChars: 500,
-  phoneFormat: "+86-000-0000-0000",
-  enableSiteMemory: true
-};
+import { DEFAULT_OPTIONS, ExtensionOptions, getOptions, saveOptions } from "../lib/storage";
 
 function OptionsPage(): JSX.Element {
-  const [state, setState] = useState<OptionsFormState>(DEFAULT_STATE);
+  const [state, setState] = useState<ExtensionOptions>(DEFAULT_OPTIONS);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const stored = await storageGet<Partial<OptionsFormState>>("options");
-        if (stored) {
-          setState((current) => ({ ...current, ...stored }));
-        }
+        const stored = await getOptions();
+        setState(stored);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
     })();
   }, []);
 
-  function updateField<K extends keyof OptionsFormState>(field: K, value: OptionsFormState[K]): void {
+  function updateField<K extends keyof ExtensionOptions>(field: K, value: ExtensionOptions[K]): void {
     setState((current) => ({ ...current, [field]: value }));
     setStatus("idle");
     setError(null);
@@ -50,7 +29,7 @@ function OptionsPage(): JSX.Element {
     setStatus("saving");
     setError(null);
     try {
-      await storageSet("options", state);
+      await saveOptions(state);
       setStatus("saved");
     } catch (err) {
       setStatus("error");
@@ -147,30 +126,6 @@ function OptionsPage(): JSX.Element {
       </form>
     </main>
   );
-}
-
-function storageGet<T>(key: string): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get([key], (result) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(result[key] as T | undefined);
-    });
-  });
-}
-
-function storageSet<T>(key: string, value: T): Promise<void> {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set({ [key]: value }, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve();
-    });
-  });
 }
 
 const optionsRoot = document.getElementById("root");
