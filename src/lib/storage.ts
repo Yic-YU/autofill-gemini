@@ -1,3 +1,5 @@
+import { HARDCODED_DEFAULTS } from "./config";
+
 export type StorageAreaName = "local" | "sync" | "session";
 
 function resolveArea(area: StorageAreaName = "local"): chrome.storage.StorageArea {
@@ -67,10 +69,11 @@ const OPTIONS_STORAGE_KEY = "options";
 
 export async function getOptions(): Promise<ExtensionOptions> {
   const stored = await storageGet<Partial<ExtensionOptions>>(OPTIONS_STORAGE_KEY);
+  const base = { ...DEFAULT_OPTIONS, ...HARDCODED_DEFAULTS };
   if (!stored) {
-    return { ...DEFAULT_OPTIONS };
+    return base;
   }
-  return { ...DEFAULT_OPTIONS, ...stored };
+  return { ...base, ...stored };
 }
 
 export async function saveOptions(options: ExtensionOptions): Promise<void> {

@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve, join } from "path";
-import { mkdir, copyFile, readdir, stat } from "fs/promises";
+import { mkdir, copyFile, readdir, rm, stat } from "fs/promises";
 
 function staticCopyPlugin() {
   return {
@@ -12,6 +12,8 @@ function staticCopyPlugin() {
       await mkdir(outDir, { recursive: true });
       await copyFile(resolve(__dirname, "manifest.json"), resolve(outDir, "manifest.json"));
       await copyDirectory(resolve(__dirname, "data"), resolve(outDir, "data"));
+      await copyDirectory(resolve(__dirname, "public/icons"), resolve(outDir, "icons"));
+      await promoteProcessedHtml(outDir);
     }
   };
 }
@@ -27,6 +29,35 @@ async function copyDirectory(source: string, destination: string): Promise<void>
     } else if (entry.isFile()) {
       await copyFile(srcPath, destPath);
     }
+  }
+}
+
+async function promoteProcessedHtml(outDir: string): Promise<void> {
+  const buildPublicDir = join(outDir, "public");
+  try {
+    const entries = await readdir(buildPublicDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".html")) {
+        const srcPath = join(buildPublicDir, entry.name);
+        const destPath = join(outDir, entry.name);
+        await copyFile(srcPath, destPath);
+      }
+    }
+    await rm(buildPublicDir, { recursive: true, force: true });
+  } catch (error) {
+    if (!(await exists(buildPublicDir))) {
+      return;
+    }
+    throw error;
+  }
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 
