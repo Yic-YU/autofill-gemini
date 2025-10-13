@@ -139,11 +139,11 @@ function applyTextValue(element: HTMLElement, role: FieldRole, entry: FillPlanEn
 
   focusElement(element);
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    element.value = value;
+    setNativeValue(element, value);
   } else if (role === "custom") {
     (element as HTMLElement).textContent = value;
   }
-  emitInputEvents(element);
+  emitInputEvents(element, { blur: true });
 
   return { elKey: entry.elKey, role, previousValue };
 }
@@ -154,7 +154,7 @@ function applyContentEditable(element: HTMLElement, entry: FillPlanEntry): Appli
 
   focusElement(element);
   element.innerText = value;
-  emitInputEvents(element);
+  emitInputEvents(element, { blur: true });
 
   return { elKey: entry.elKey, role: "contenteditable", previousValue };
 }
@@ -165,21 +165,28 @@ function applySelect(select: HTMLSelectElement, entry: FillPlanEntry): AppliedFi
   const resolvedIndex = resolveOptionIndex(options, entry);
 
   focusElement(select);
+  let applied = false;
   if (resolvedIndex !== undefined && resolvedIndex >= 0 && resolvedIndex < options.length) {
-    select.selectedIndex = resolvedIndex;
+    setNativeValue(select, options[resolvedIndex].value);
+    applied = true;
   } else {
     const candidateValue = normalizeValue(entry.value);
     const matchByValue = options.find((option) => option.value === candidateValue);
     if (matchByValue) {
-      matchByValue.selected = true;
+      setNativeValue(select, matchByValue.value);
+      applied = true;
     } else {
       const matchByText = options.find((option) => option.text.trim() === candidateValue);
       if (matchByText) {
-        matchByText.selected = true;
+        setNativeValue(select, matchByText.value);
+        applied = true;
       }
     }
   }
-  emitChange(select);
+  if (!applied && entry.optionMatch?.mode === "index") {
+    select.selectedIndex = entry.optionMatch.index ?? -1;
+  }
+  emitInputEvents(select, { blur: true });
 
   return { elKey: entry.elKey, role: "select", previousValue };
 }
@@ -197,8 +204,8 @@ function applyRadio(radio: HTMLInputElement, entry: FillPlanEntry): AppliedFillS
   }
 
   focusElement(target);
-  target.checked = true;
-  emitInputEvents(target);
+  setNativeChecked(target, true);
+  emitInputEvents(target, { blur: true });
 
   return {
     elKey: entry.elKey,
@@ -213,8 +220,8 @@ function applyCheckbox(checkbox: HTMLInputElement, entry: FillPlanEntry): Applie
   const desiredState = resolveCheckboxState(checkbox, entry);
 
   focusElement(checkbox);
-  checkbox.checked = desiredState;
-  emitInputEvents(checkbox);
+  setNativeChecked(checkbox, desiredState);
+  emitInputEvents(checkbox, { blur: true });
 
   return { elKey: entry.elKey, role: "checkbox", previousChecked };
 }
@@ -222,8 +229,8 @@ function applyCheckbox(checkbox: HTMLInputElement, entry: FillPlanEntry): Applie
 function restoreTextValue(element: HTMLElement, value: string | string[]): void {
   const text = Array.isArray(value) ? value.join("\n") : value;
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    element.value = text ?? "";
-    emitInputEvents(element);
+    setNativeValue(element, text ?? "");
+    emitInputEvents(element, { blur: true });
     return;
   }
   element.textContent = text ?? "";
@@ -232,7 +239,7 @@ function restoreTextValue(element: HTMLElement, value: string | string[]): void 
 function restoreContentEditable(element: HTMLElement, value: string | string[]): void {
   const text = Array.isArray(value) ? value.join("\n") : value;
   element.innerText = text ?? "";
-  emitInputEvents(element);
+  emitInputEvents(element, { blur: true });
 }
 
 function restoreSelectValue(select: HTMLSelectElement, value: string | string[] | null): void {
@@ -240,9 +247,9 @@ function restoreSelectValue(select: HTMLSelectElement, value: string | string[] 
     select.selectedIndex = -1;
   } else {
     const target = Array.isArray(value) ? value[0] : value;
-    select.value = target ?? "";
+    setNativeValue(select, target ?? "");
   }
-  emitInputEvents(select);
+  emitInputEvents(select, { blur: true });
 }
 
 function restoreRadioValue(radio: HTMLInputElement, groupName: string | undefined, previousValue: string | string[] | null | undefined): void {
@@ -252,8 +259,8 @@ function restoreRadioValue(radio: HTMLInputElement, groupName: string | undefine
 
   if (previousValue === null || previousValue === undefined) {
     group.forEach((item) => {
-      item.checked = false;
-      emitInputEvents(item);
+      setNativeChecked(item, false);
+      emitInputEvents(item, { blur: true });
     });
     return;
   }
@@ -261,14 +268,14 @@ function restoreRadioValue(radio: HTMLInputElement, groupName: string | undefine
   const targetValue = Array.isArray(previousValue) ? previousValue[0] : previousValue;
   const toCheck = group.find((item) => item.value === targetValue);
   group.forEach((item) => {
-    item.checked = item === toCheck;
-    emitInputEvents(item);
+    setNativeChecked(item, item === toCheck);
+    emitInputEvents(item, { blur: true });
   });
 }
 
 function restoreCheckboxValue(checkbox: HTMLInputElement, checked: boolean): void {
-  checkbox.checked = checked;
-  emitInputEvents(checkbox);
+  setNativeChecked(checkbox, checked);
+  emitInputEvents(checkbox, { blur: true });
 }
 
 function normalizeValue(value: string | string[]): string {
@@ -298,13 +305,22 @@ function focusElement(element: HTMLElement): void {
   }
 }
 
-function emitInputEvents(element: HTMLElement): void {
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  emitChange(element);
-}
-
-function emitChange(element: HTMLElement): void {
-  element.dispatchEvent(new Event("change", { bubbles: true }));
+function emitInputEvents(element: HTMLElement, options: { blur?: boolean } = {}): void {
+  const bubbles = { bubbles: true };
+  try {
+    if (typeof InputEvent !== "undefined") {
+      element.dispatchEvent(new InputEvent("input", bubbles));
+    } else {
+      element.dispatchEvent(new Event("input", bubbles));
+    }
+  } catch {
+    element.dispatchEvent(new Event("input", bubbles));
+  }
+  element.dispatchEvent(new Event("change", bubbles));
+  element.dispatchEvent(new Event("focusout", bubbles));
+  if (options.blur && typeof element.blur === "function") {
+    element.blur();
+  }
 }
 
 function resolveOptionIndex(options: HTMLOptionElement[], entry: FillPlanEntry): number | undefined {
@@ -392,4 +408,28 @@ function extractLabelText(element: HTMLElement): string | undefined {
   }
   const wrappingLabel = element.closest("label");
   return wrappingLabel?.textContent?.trim() ?? undefined;
+}
+
+function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): void {
+  const ownDescriptor = Object.getOwnPropertyDescriptor(element, "value");
+  const prototype = Object.getPrototypeOf(element);
+  const prototypeDescriptor = prototype ? Object.getOwnPropertyDescriptor(prototype, "value") : undefined;
+  const valueSetter = ownDescriptor?.set ?? prototypeDescriptor?.set;
+  if (valueSetter) {
+    valueSetter.call(element, value);
+  } else {
+    element.value = value;
+  }
+}
+
+function setNativeChecked(element: HTMLInputElement, checked: boolean): void {
+  const ownDescriptor = Object.getOwnPropertyDescriptor(element, "checked");
+  const prototype = Object.getPrototypeOf(element);
+  const prototypeDescriptor = prototype ? Object.getOwnPropertyDescriptor(prototype, "checked") : undefined;
+  const checkedSetter = ownDescriptor?.set ?? prototypeDescriptor?.set;
+  if (checkedSetter) {
+    checkedSetter.call(element, checked);
+  } else {
+    element.checked = checked;
+  }
 }
