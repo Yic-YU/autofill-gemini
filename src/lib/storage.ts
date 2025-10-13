@@ -71,11 +71,8 @@ const OPTIONS_STORAGE_KEY = "options";
 
 export async function getOptions(): Promise<ExtensionOptions> {
   const stored = await storageGet<Partial<ExtensionOptions>>(OPTIONS_STORAGE_KEY);
-  const base = { ...DEFAULT_OPTIONS, ...HARDCODED_DEFAULTS };
-  if (!stored) {
-    return base;
-  }
-  return { ...base, ...stored };
+  const merged = { ...DEFAULT_OPTIONS, ...(stored ?? {}) };
+  return { ...merged, ...HARDCODED_DEFAULTS };
 }
 
 export async function saveOptions(options: ExtensionOptions): Promise<void> {
