@@ -22,7 +22,7 @@ async function handleMessage(message: unknown): Promise<unknown> {
 
   switch (message.type) {
     case "collect-field-candidates": {
-      const candidates = collectFieldCandidates();
+      const candidates = collectFieldCandidates(document, { skipPrefilled: message.skipPrefilled ?? false });
       return { ok: true, candidates };
     }
     case "apply-fill-plan": {
@@ -42,6 +42,7 @@ async function handleMessage(message: unknown): Promise<unknown> {
 
 interface CollectFieldCandidatesCommand {
   type: "collect-field-candidates";
+  skipPrefilled?: boolean;
 }
 
 interface ApplyFillPlanCommand {

@@ -114,6 +114,14 @@ function OptionsPage(): JSX.Element {
             />
             启用站点记忆提示
           </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={state.skipPrefilledFields}
+              onChange={(event) => updateField("skipPrefilledFields", event.target.checked)}
+            />
+            跳过已填写的表单字段
+          </label>
         </section>
 
         <div className="actions">

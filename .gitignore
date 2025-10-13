@@ -3,4 +3,5 @@ dist/
 *.log
 .DS_Store
 src/lib/config.ts
-data/profile.zhaoyu.json
+data/profile.*.json
+!data/profile.default.json

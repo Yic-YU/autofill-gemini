@@ -11,9 +11,17 @@ import {
 const ELEMENT_KEY_ATTR = "data-resume-autofill-key";
 const elementRegistry = new Map<string, HTMLElement>();
 
-export function collectFieldCandidates(root: Document | ShadowRoot = document): FieldCandidates {
+export interface CollectFieldOptions {
+  skipPrefilled?: boolean;
+}
+
+export function collectFieldCandidates(
+  root: Document | ShadowRoot = document,
+  options?: CollectFieldOptions
+): FieldCandidates {
   const scope: Document | ShadowRoot = root;
   elementRegistry.clear();
+  const skipPrefilled = options?.skipPrefilled ?? false;
 
   const candidates: FieldCandidates = [];
   const radioGroupsHandled = new Set<string>();
@@ -41,6 +49,10 @@ export function collectFieldCandidates(root: Document | ShadowRoot = document): 
       if (groupKey) {
         radioGroupsHandled.add(groupKey);
       }
+    }
+
+    if (skipPrefilled && isElementPrefilled(element, role)) {
+      return;
     }
 
     const elKey = assignElementKey(element, index);
@@ -357,6 +369,67 @@ function getGroupTitle(element: HTMLElement): string | undefined {
     return legend.textContent.trim();
   }
   return undefined;
+}
+
+function isElementPrefilled(element: HTMLElement, role: FieldRole): boolean {
+  switch (role) {
+    case "text":
+    case "textarea":
+    case "email":
+    case "tel":
+    case "date":
+    case "custom": {
+      if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+        return hasNonEmptyValue(element.value);
+      }
+      return hasNonEmptyValue(element.textContent);
+    }
+    case "contenteditable": {
+      return hasNonEmptyValue(element.innerText);
+    }
+    case "select": {
+      if (!(element instanceof HTMLSelectElement)) {
+        return false;
+      }
+      if (hasNonEmptyValue(element.value)) {
+        return true;
+      }
+      return Array.from(element.selectedOptions ?? []).some((option) => hasNonEmptyValue(option.value));
+    }
+    case "radio": {
+      if (!(element instanceof HTMLInputElement)) {
+        return false;
+      }
+      return radioGroupHasSelection(element);
+    }
+    case "checkbox": {
+      if (!(element instanceof HTMLInputElement)) {
+        return false;
+      }
+      return element.checked;
+    }
+    default:
+      return false;
+  }
+}
+
+function radioGroupHasSelection(radio: HTMLInputElement): boolean {
+  if (!radio.name) {
+    return radio.checked;
+  }
+
+  const root = radio.getRootNode();
+  if (root instanceof Document || root instanceof ShadowRoot) {
+    const selector = `input[type="radio"][name="${CSS.escape(radio.name)}"]`;
+    const radios = Array.from(root.querySelectorAll<HTMLInputElement>(selector));
+    return radios.some((item) => item.checked);
+  }
+
+  return radio.checked;
+}
+
+function hasNonEmptyValue(value: string | null | undefined): boolean {
+  return value !== undefined && value !== null && value.trim().length > 0;
 }
 
 function getRadioGroupKey(radio: HTMLInputElement): string | undefined {

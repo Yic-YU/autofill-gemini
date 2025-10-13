@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { FieldCandidates, FillPlan, FillPlanEntry } from "../lib/schema";
+import { ExtensionOptions, getOptions, saveOptions } from "../lib/storage";
 
 type ViewStatus = "idle" | "scanning" | "planning" | "ready" | "applying" | "error";
 
@@ -19,12 +20,37 @@ function Popup(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<FieldCandidates>([]);
   const [fillPlan, setFillPlan] = useState<FillPlan>([]);
+  const [options, setOptions] = useState<ExtensionOptions | null>(null);
 
   const hasPlan = fillPlan.length > 0;
   const lowConfidenceItems = useMemo(
     () => fillPlan.filter((entry) => entry.confidence < LOW_CONFIDENCE_THRESHOLD),
     [fillPlan]
   );
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const stored = await getOptions();
+        setOptions(stored);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+  }, []);
+
+  async function handleToggleSkipPrefilled(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    if (!options) {
+      return;
+    }
+    const next = { ...options, skipPrefilledFields: event.target.checked };
+    setOptions(next);
+    try {
+      await saveOptions(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   async function handleScan(): Promise<void> {
     setStatus("scanning");
@@ -114,6 +140,18 @@ function Popup(): JSX.Element {
         <h1>简历自动填充（Flash）</h1>
         <p className="subtitle">扫描当前标签页，预览自动填充方案，然后执行或撤销。</p>
       </header>
+
+      <div className="preferences">
+        <label>
+          <input
+            type="checkbox"
+            checked={options?.skipPrefilledFields ?? false}
+            onChange={handleToggleSkipPrefilled}
+            disabled={!options}
+          />
+          跳过已填写的表单字段
+        </label>
+      </div>
 
       <div className="controls">
         <button onClick={handleScan} disabled={status === "scanning" || status === "planning"}>

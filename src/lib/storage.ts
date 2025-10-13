@@ -53,6 +53,7 @@ export interface ExtensionOptions {
   maxSummaryChars: number;
   phoneFormat: string;
   enableSiteMemory: boolean;
+  skipPrefilledFields: boolean;
 }
 
 export const DEFAULT_OPTIONS: ExtensionOptions = {
@@ -62,7 +63,8 @@ export const DEFAULT_OPTIONS: ExtensionOptions = {
   minConfidence: 0.6,
   maxSummaryChars: 500,
   phoneFormat: "+86-000-0000-0000",
-  enableSiteMemory: true
+  enableSiteMemory: true,
+  skipPrefilledFields: false
 };
 
 const OPTIONS_STORAGE_KEY = "options";

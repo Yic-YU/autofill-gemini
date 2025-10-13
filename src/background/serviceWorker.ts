@@ -119,9 +119,10 @@ class ResumeAutofillBackground {
 
   private async collectFieldCandidates(tabId: number): Promise<FieldCandidates> {
     try {
+      const options = await this.getOptions();
       const response = await this.sendMessageToTab<{ ok: boolean; candidates?: FieldCandidates; error?: string }>(
         tabId,
-        { type: "collect-field-candidates" }
+        { type: "collect-field-candidates", skipPrefilled: options.skipPrefilledFields }
       );
       if (!response.ok || !response.candidates) {
         throw new Error(response.error ?? "采集字段失败");
