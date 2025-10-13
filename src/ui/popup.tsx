@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { FieldCandidates, FillPlan, FillPlanEntry } from "../lib/schema";
+import { FieldCandidate, FieldCandidates, FillPlan, FillPlanEntry } from "../lib/schema";
 import { ExtensionOptions, getOptions, saveOptions } from "../lib/storage";
 
 type ViewStatus = "idle" | "scanning" | "planning" | "ready" | "applying" | "error";
@@ -27,6 +27,11 @@ function Popup(): JSX.Element {
     () => fillPlan.filter((entry) => entry.confidence < LOW_CONFIDENCE_THRESHOLD),
     [fillPlan]
   );
+  const candidateLookup = useMemo(() => {
+    const map = new Map<string, FieldCandidate>();
+    candidates.forEach((candidate) => map.set(candidate.elKey, candidate));
+    return map;
+  }, [candidates]);
 
   useEffect(() => {
     void (async () => {
@@ -175,19 +180,22 @@ function Popup(): JSX.Element {
       <section className="field-section">
         <h2>识别出的字段</h2>
         <p className="hint">{candidates.length ? `已识别 ${candidates.length} 个字段。` : "请先执行页面扫描。"}</p>
-        <div className="list">
-          {candidates.map((candidate) => (
-            <div className="list-item" key={candidate.elKey}>
-              <div className="item-header">
-                <span className="role">{candidate.role}</span>
-                <span className="el-key">{candidate.elKey}</span>
-              </div>
-              <div className="item-body">
-                <small>{candidate.hints.label ?? candidate.hints.placeholder ?? "无主要提示"}</small>
-              </div>
+      <div className="list">
+        {candidates.map((candidate) => (
+          <div className="list-item" key={candidate.elKey}>
+            <div className="item-header">
+              <span className="role">{candidate.role}</span>
+              <span className="el-key">{candidate.elKey}</span>
             </div>
-          ))}
-        </div>
+            <div className="item-body">
+              <strong>{resolvePrimaryHint(candidate)}</strong>
+              {resolveSupplementalHints(candidate).map((hint, index) => (
+                <small key={index}>{hint}</small>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
       </section>
 
       <section className="field-section">
@@ -207,7 +215,7 @@ function Popup(): JSX.Element {
             <span>置信度</span>
           </div>
           {fillPlan.map((entry) => (
-            <PlanRow key={entry.elKey} entry={entry} />
+            <PlanRow key={entry.elKey} entry={entry} candidate={candidateLookup.get(entry.elKey)} />
           ))}
         </div>
       </section>
@@ -215,12 +223,19 @@ function Popup(): JSX.Element {
   );
 }
 
-function PlanRow({ entry }: { entry: FillPlanEntry }): JSX.Element {
+function PlanRow({ entry, candidate }: { entry: FillPlanEntry; candidate?: FieldCandidate }): JSX.Element {
   const isLowConfidence = entry.confidence < LOW_CONFIDENCE_THRESHOLD;
+  const primaryLabel = candidate ? resolvePrimaryHint(candidate) : undefined;
   return (
     <div className={`plan-row${isLowConfidence ? " low-confidence" : ""}`}>
-      <span>{entry.elKey}</span>
-      <span>{entry.targetKey}</span>
+      <span>
+        {primaryLabel && <span className="plan-label">{primaryLabel}</span>}
+        <small className="plan-el-key">{entry.elKey}</small>
+      </span>
+      <span>
+        {entry.targetKey}
+        {entry.reason && <small className="plan-reason">{entry.reason}</small>}
+      </span>
       <span>{Array.isArray(entry.value) ? entry.value.join(", ") : entry.value}</span>
       <span>{Math.round(entry.confidence * 100)}%</span>
     </div>
@@ -250,3 +265,52 @@ createRoot(container).render(
     <Popup />
   </React.StrictMode>
 );
+
+function resolvePrimaryHint(candidate: FieldCandidate): string {
+  const { hints } = candidate;
+  return (
+    hints.label ??
+    hints.placeholder ??
+    hints.groupTitle ??
+    hints.neighborText ??
+    hints.nameOrId ??
+    "未识别名称"
+  );
+}
+
+function resolveSupplementalHints(candidate: FieldCandidate): string[] {
+  const lines: string[] = [];
+  const { hints, constraints } = candidate;
+  const primary = resolvePrimaryHint(candidate);
+
+  if (hints.label && hints.label !== primary) {
+    lines.push(`标签：${hints.label}`);
+  }
+  if (hints.placeholder && hints.placeholder !== primary) {
+    lines.push(`占位符：${hints.placeholder}`);
+  }
+  if (hints.nameOrId) {
+    lines.push(`name/id：${hints.nameOrId}`);
+  }
+  if (hints.groupTitle) {
+    lines.push(`分组：${hints.groupTitle}`);
+  }
+  if (hints.neighborText) {
+    lines.push(`邻近文本：${truncateHint(hints.neighborText)}`);
+  }
+  if (hints.aria) {
+    lines.push(`ARIA：${truncateHint(hints.aria)}`);
+  }
+  if (constraints.required) {
+    lines.push("约束：必填");
+  }
+
+  return Array.from(new Set(lines));
+}
+
+function truncateHint(text: string, maxLength = 60): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}…`;
+}
