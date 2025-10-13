@@ -250,9 +250,19 @@ function extractOptions(element: HTMLElement, role: FieldRole): FieldOption[] | 
   return undefined;
 }
 
+function collectElementLabels(element: HTMLElement): HTMLLabelElement[] | undefined {
+  const candidate = element as HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null };
+  const labelList = candidate.labels ?? null;
+  if (!labelList || labelList.length === 0) {
+    return undefined;
+  }
+  return Array.from(labelList);
+}
+
 function extractLabelText(element: HTMLElement): string | undefined {
-  if ("labels" in element && element.labels && element.labels.length > 0) {
-    const direct = Array.from(element.labels)
+  const labels = collectElementLabels(element);
+  if (labels && labels.length > 0) {
+    const direct = labels
       .map((label) => label.innerText.trim())
       .find(Boolean);
     if (direct) {
@@ -263,7 +273,7 @@ function extractLabelText(element: HTMLElement): string | undefined {
   const doc = element.ownerDocument ?? document;
   const id = element.getAttribute("id");
   if (id) {
-    const forLabel = doc.querySelector(`label[for="${CSS.escape(id)}"]`);
+    const forLabel = doc.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(id)}"]`);
     if (forLabel) {
       const text = forLabel.innerText.trim();
       if (text) {
@@ -272,7 +282,7 @@ function extractLabelText(element: HTMLElement): string | undefined {
     }
   }
 
-  const wrappingLabel = element.closest("label");
+  const wrappingLabel = element.closest<HTMLLabelElement>("label");
   if (wrappingLabel) {
     const text = wrappingLabel.textContent?.replace(element.textContent ?? "", "").trim();
     if (text) {

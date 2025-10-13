@@ -1,18 +1,21 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve, join } from "path";
-import { mkdir, copyFile, readdir, rm, stat } from "fs/promises";
+import { resolve, join, dirname } from "node:path";
+import { mkdir, copyFile, readdir, rm, stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
-function staticCopyPlugin() {
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+
+function staticCopyPlugin(): Plugin {
   return {
     name: "static-copy",
     apply: "build",
     async closeBundle() {
-      const outDir = resolve(__dirname, "dist");
+      const outDir = resolve(projectRoot, "dist");
       await mkdir(outDir, { recursive: true });
-      await copyFile(resolve(__dirname, "manifest.json"), resolve(outDir, "manifest.json"));
-      await copyDirectory(resolve(__dirname, "data"), resolve(outDir, "data"));
-      await copyDirectory(resolve(__dirname, "public/icons"), resolve(outDir, "icons"));
+      await copyFile(resolve(projectRoot, "manifest.json"), resolve(outDir, "manifest.json"));
+      await copyDirectory(resolve(projectRoot, "data"), resolve(outDir, "data"));
+      await copyDirectory(resolve(projectRoot, "public/icons"), resolve(outDir, "icons"));
       await promoteProcessedHtml(outDir);
     }
   };
@@ -71,10 +74,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, "public/popup.html"),
-        options: resolve(__dirname, "public/options.html"),
-        background: resolve(__dirname, "src/background/serviceWorker.ts"),
-        content: resolve(__dirname, "src/content/contentMain.ts")
+        popup: resolve(projectRoot, "public/popup.html"),
+        options: resolve(projectRoot, "public/options.html"),
+        background: resolve(projectRoot, "src/background/serviceWorker.ts"),
+        content: resolve(projectRoot, "src/content/contentMain.ts")
       },
       output: {
         entryFileNames: (chunk) => {

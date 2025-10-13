@@ -57,7 +57,7 @@ async function postPrompt(prompt: string, config: GeminiConfig): Promise<string>
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API 调用失败：${response.status} ${errorText}`);
+    throw new Error(formatGeminiError(response.status, errorText));
   }
 
   const json = await response.json();
@@ -114,4 +114,31 @@ function buildPrimaryPrompt(payload: FlashRequestPayload): string {
 
   sections.push("请仅返回 FillPlan JSON 数组。");
   return sections.join("\n\n");
+}
+
+function formatGeminiError(status: number, body: string): string {
+  let parsedMessage: string | undefined;
+  let parsedStatus: string | undefined;
+  try {
+    const data = JSON.parse(body) as {
+      error?: { code?: number; status?: string; message?: string };
+    };
+    parsedMessage = data?.error?.message;
+    parsedStatus = data?.error?.status;
+  } catch {
+    parsedMessage = undefined;
+  }
+
+  const details = parsedMessage ?? body.trim() ?? "";
+  const prefix = `Gemini API 调用失败：${status}`;
+
+  if (status === 429 || parsedStatus === "RESOURCE_EXHAUSTED") {
+    return `${prefix}（配额或速率限制已耗尽，请检查账户套餐与账单状态）。${details}`;
+  }
+
+  if (details) {
+    return `${prefix} ${details}`;
+  }
+
+  return prefix;
 }

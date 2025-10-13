@@ -373,10 +373,22 @@ function resolveCheckboxState(checkbox: HTMLInputElement, entry: FillPlanEntry):
   return ["1", "true", "yes", "on", checkbox.value.toLowerCase()].includes(normalized);
 }
 
+function collectElementLabels(element: HTMLElement): HTMLLabelElement[] | undefined {
+  const candidate = element as HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null };
+  const labelList = candidate.labels ?? null;
+  if (!labelList || labelList.length === 0) {
+    return undefined;
+  }
+  return Array.from(labelList);
+}
+
 function extractLabelText(element: HTMLElement): string | undefined {
-  if ("labels" in element && element.labels && element.labels.length > 0) {
-    const label = element.labels[0];
-    return label?.innerText.trim() || undefined;
+  const labels = collectElementLabels(element);
+  if (labels && labels.length > 0) {
+    const direct = labels.map((label) => label.innerText.trim()).find(Boolean);
+    if (direct) {
+      return direct;
+    }
   }
   const wrappingLabel = element.closest("label");
   return wrappingLabel?.textContent?.trim() ?? undefined;
