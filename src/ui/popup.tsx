@@ -5,6 +5,14 @@ import { FieldCandidates, FillPlan, FillPlanEntry } from "../lib/schema";
 type ViewStatus = "idle" | "scanning" | "planning" | "ready" | "applying" | "error";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
+const STATUS_LABELS: Record<ViewStatus, string> = {
+  idle: "空闲",
+  scanning: "扫描中",
+  planning: "生成计划中",
+  ready: "已准备",
+  applying: "执行操作中",
+  error: "出错"
+};
 
 function Popup(): JSX.Element {
   const [status, setStatus] = useState<ViewStatus>("idle");
@@ -26,7 +34,7 @@ function Popup(): JSX.Element {
         type: "popup-scan-active-tab"
       });
       if (!response.ok || !response.candidates) {
-        throw new Error(response.error ?? "Scan failed");
+        throw new Error(response.error ?? "扫描失败");
       }
       setCandidates(response.candidates);
       setFillPlan([]);
@@ -39,7 +47,7 @@ function Popup(): JSX.Element {
 
   async function handlePlan(): Promise<void> {
     if (!candidates.length) {
-      setError("Scan the page before requesting a fill plan.");
+      setError("请先扫描页面，再生成填充计划。");
       return;
     }
 
@@ -51,7 +59,7 @@ function Popup(): JSX.Element {
         candidates
       });
       if (!response.ok || !response.plan) {
-        throw new Error(response.error ?? "Plan generation failed");
+        throw new Error(response.error ?? "生成填充计划失败");
       }
       setFillPlan(response.plan);
       setStatus("ready");
@@ -74,7 +82,7 @@ function Popup(): JSX.Element {
         plan: fillPlan
       });
       if (!response.ok) {
-        throw new Error(response.error ?? "Apply failed");
+        throw new Error(response.error ?? "执行填充计划失败");
       }
       setStatus("ready");
     } catch (err) {
@@ -91,7 +99,7 @@ function Popup(): JSX.Element {
         type: "popup-rollback-plan"
       });
       if (!response.ok) {
-        throw new Error(response.error ?? "Rollback failed");
+        throw new Error(response.error ?? "撤销失败");
       }
       setStatus("ready");
     } catch (err) {
@@ -103,30 +111,32 @@ function Popup(): JSX.Element {
   return (
     <div className="popup">
       <header>
-        <h1>Resume Autofill (Flash)</h1>
-        <p className="subtitle">Scan the active tab, preview the plan, then execute or rollback.</p>
+        <h1>简历自动填充（Flash）</h1>
+        <p className="subtitle">扫描当前标签页，预览自动填充方案，然后执行或撤销。</p>
       </header>
 
       <div className="controls">
         <button onClick={handleScan} disabled={status === "scanning" || status === "planning"}>
-          {status === "scanning" ? "Scanning…" : "Scan Page"}
+          {status === "scanning" ? "扫描中…" : "扫描页面"}
         </button>
         <button onClick={handlePlan} disabled={status !== "ready" && status !== "idle"}>
-          {status === "planning" ? "Planning…" : "Call Flash"}
+          {status === "planning" ? "生成中…" : "生成填充计划"}
         </button>
         <button onClick={handleApply} disabled={!hasPlan || status === "applying"}>
-          Apply Fill Plan
+          {status === "applying" ? "执行操作中…" : "执行填充计划"}
         </button>
         <button onClick={handleRollback} disabled={status === "applying"}>
-          Rollback
+          {status === "applying" ? "执行操作中…" : "撤销"}
         </button>
       </div>
+
+      <p className="status-text">当前状态：{STATUS_LABELS[status]}</p>
 
       {error && <div className="error-banner">{error}</div>}
 
       <section className="field-section">
-        <h2>Detected Fields</h2>
-        <p className="hint">{candidates.length ? `${candidates.length} fields detected.` : "Run scan to populate."}</p>
+        <h2>识别出的字段</h2>
+        <p className="hint">{candidates.length ? `已识别 ${candidates.length} 个字段。` : "请先执行页面扫描。"}</p>
         <div className="list">
           {candidates.map((candidate) => (
             <div className="list-item" key={candidate.elKey}>
@@ -135,7 +145,7 @@ function Popup(): JSX.Element {
                 <span className="el-key">{candidate.elKey}</span>
               </div>
               <div className="item-body">
-                <small>{candidate.hints.label ?? candidate.hints.placeholder ?? "No primary hint"}</small>
+                <small>{candidate.hints.label ?? candidate.hints.placeholder ?? "无主要提示"}</small>
               </div>
             </div>
           ))}
@@ -144,20 +154,19 @@ function Popup(): JSX.Element {
 
       <section className="field-section">
         <h2>
-          Fill Plan {hasPlan && <span className="minor">({fillPlan.length} items)</span>}
+          填充计划 {hasPlan && <span className="minor">（{fillPlan.length} 条）</span>}
         </h2>
         {lowConfidenceItems.length > 0 && (
           <div className="warning">
-            {lowConfidenceItems.length} item{lowConfidenceItems.length === 1 ? "" : "s"} below{" "}
-            {LOW_CONFIDENCE_THRESHOLD * 100}% confidence.
+            {lowConfidenceItems.length} 条记录低于 {LOW_CONFIDENCE_THRESHOLD * 100}% 置信度，请人工确认。
           </div>
         )}
         <div className="plan-table">
           <div className="plan-row header">
-            <span>Element</span>
-            <span>Target</span>
-            <span>Value</span>
-            <span>Confidence</span>
+            <span>元素</span>
+            <span>目标键</span>
+            <span>填充值</span>
+            <span>置信度</span>
           </div>
           {fillPlan.map((entry) => (
             <PlanRow key={entry.elKey} entry={entry} />

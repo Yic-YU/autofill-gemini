@@ -40,24 +40,24 @@ function OptionsPage(): JSX.Element {
   return (
     <main className="options">
       <header>
-        <h1>Resume Autofill Settings</h1>
-        <p>Configure Gemini Flash access, profile selection, and confidence thresholds.</p>
+        <h1>简历自动填充设置</h1>
+        <p>配置 Gemini Flash 访问、档案选择以及置信度阈值。</p>
       </header>
       <form onSubmit={handleSubmit}>
         <section>
-          <h2>Gemini Flash</h2>
+          <h2>Gemini Flash 配置</h2>
           <label>
             API Key
             <input
               type="password"
               value={state.apiKey}
               onChange={(event) => updateField("apiKey", event.target.value)}
-              placeholder="Enter your Gemini API key"
+              placeholder="请输入 Gemini API Key"
               autoComplete="off"
             />
           </label>
           <label>
-            Model Name
+            模型名称
             <input
               type="text"
               value={state.model}
@@ -67,9 +67,9 @@ function OptionsPage(): JSX.Element {
         </section>
 
         <section>
-          <h2>Profile &amp; Thresholds</h2>
+          <h2>档案与阈值</h2>
           <label>
-            Active Profile File
+            当前档案文件
             <input
               type="text"
               value={state.activeProfile}
@@ -78,7 +78,7 @@ function OptionsPage(): JSX.Element {
             />
           </label>
           <label>
-            Minimum Confidence
+            最低置信度
             <input
               type="number"
               min={0}
@@ -89,7 +89,7 @@ function OptionsPage(): JSX.Element {
             />
           </label>
           <label>
-            Max Summary Characters
+            概述字段最大字符数
             <input
               type="number"
               min={0}
@@ -98,7 +98,7 @@ function OptionsPage(): JSX.Element {
             />
           </label>
           <label>
-            Phone Format
+            电话号码格式
             <input
               type="text"
               value={state.phoneFormat}
@@ -112,15 +112,15 @@ function OptionsPage(): JSX.Element {
               checked={state.enableSiteMemory}
               onChange={(event) => updateField("enableSiteMemory", event.target.checked)}
             />
-            Enable site memory hints
+            启用站点记忆提示
           </label>
         </section>
 
         <div className="actions">
           <button type="submit" disabled={status === "saving"}>
-            {status === "saving" ? "Saving…" : "Save Settings"}
+            {status === "saving" ? "保存中…" : "保存设置"}
           </button>
-          {status === "saved" && <span className="status ok">Saved!</span>}
+          {status === "saved" && <span className="status ok">已保存！</span>}
           {status === "error" && <span className="status error">{error}</span>}
         </div>
       </form>
