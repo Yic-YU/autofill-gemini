@@ -151,8 +151,8 @@ class ResumeAutofillBackground {
 
     const tab = await this.requireActiveTab();
     const payload = await this.prepareFlashPayload(candidates, tab);
-    const plan = await this.invokeFlash(payload);
-    return { ok: true, plan };
+    const { plan, prompt } = await this.invokeFlash(payload);
+    return { ok: true, plan, prompt };
   }
 
   private async handleApplyRequest(plan: FillPlan): Promise<unknown> {
@@ -233,7 +233,7 @@ class ResumeAutofillBackground {
     ].join("\n");
   }
 
-  private async invokeFlash(payload: FlashRequestPayload): Promise<FillPlan> {
+  private async invokeFlash(payload: FlashRequestPayload): Promise<{ plan: FillPlan; prompt: string }> {
     const options = await this.getOptions();
     if (!options.apiKey) {
       throw new Error("尚未配置 Gemini API Key，请在 Options 页面填写后重试。");
@@ -244,18 +244,18 @@ class ResumeAutofillBackground {
       model: options.model
     };
 
-    const result = await callGeminiFlash(payload, config);
-    let plan = this.tryParseFillPlan(result.rawText);
+    const { rawText, prompt } = await callGeminiFlash(payload, config);
+    let plan = this.tryParseFillPlan(rawText);
 
     if (!plan) {
-      const repaired = await repairJsonIfNeeded(result.rawText, FILL_PLAN_SCHEMA_DESCRIPTION, config);
+      const repaired = await repairJsonIfNeeded(rawText, FILL_PLAN_SCHEMA_DESCRIPTION, config);
       plan = this.tryParseFillPlan(repaired);
       if (!plan) {
         throw new Error("Gemini 返回内容无法解析为 FillPlan JSON。");
       }
     }
 
-    return plan;
+    return { plan, prompt };
   }
 
   private tryParseFillPlan(raw: string): FillPlan | undefined {

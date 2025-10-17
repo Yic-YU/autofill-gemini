@@ -351,12 +351,70 @@ function getNeighborText(element: HTMLElement): string | undefined {
   const parent = element.parentElement;
   if (parent) {
     const text = parent.textContent?.replace(element.textContent ?? "", "").trim();
-    if (text && text.length <= 200) {
+    if (text && text.length <= 200 && !/必填项?/.test(text)) {
       return text;
     }
   }
 
+  const fallback = collectAncestorSiblingText(element);
+  if (fallback) {
+    return fallback;
+  }
+
   return undefined;
+}
+
+function collectAncestorSiblingText(element: HTMLElement, maxDepth = 3): string | undefined {
+  let current: HTMLElement | null = element;
+  let depth = 0;
+
+  while (current && depth < maxDepth) {
+    const parent = current.parentElement;
+    if (!parent) {
+      break;
+    }
+
+    const label = collectSiblingText(parent, current);
+    if (label) {
+      return label;
+    }
+
+    current = parent;
+    depth += 1;
+  }
+
+  return undefined;
+}
+
+function collectSiblingText(container: HTMLElement, target: HTMLElement): string | undefined {
+  const fragments: string[] = [];
+  let reachedTarget = false;
+
+  for (const child of Array.from(container.children)) {
+    if (child === target) {
+      reachedTarget = true;
+      break;
+    }
+    const text = child.textContent?.trim();
+    if (text) {
+      fragments.push(text.replace(/\s+/g, " "));
+    }
+  }
+
+  if (!reachedTarget || fragments.length === 0) {
+    return undefined;
+  }
+
+  const combined = fragments.join(" ").trim();
+  if (!combined || combined.length > 200) {
+    return undefined;
+  }
+
+  if (/必填项?/.test(combined)) {
+    return undefined;
+  }
+
+  return combined;
 }
 
 function getGroupTitle(element: HTMLElement): string | undefined {

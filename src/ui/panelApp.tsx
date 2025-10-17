@@ -20,6 +20,7 @@ export default function PanelApp(): JSX.Element {
   const [candidates, setCandidates] = useState<FieldCandidates>([]);
   const [fillPlan, setFillPlan] = useState<FillPlan>([]);
   const [options, setOptions] = useState<ExtensionOptions | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
 
   const hasPlan = fillPlan.length > 0;
   const lowConfidenceItems = useMemo(
@@ -68,6 +69,7 @@ export default function PanelApp(): JSX.Element {
       }
       setCandidates(response.candidates);
       setFillPlan([]);
+      setLastPrompt(null);
       setStatus("ready");
     } catch (err) {
       setStatus("error");
@@ -83,8 +85,9 @@ export default function PanelApp(): JSX.Element {
 
     setStatus("planning");
     setError(null);
+    setLastPrompt(null);
     try {
-      const response = await runtimeRequest<{ ok: boolean; plan?: FillPlan; error?: string }>({
+      const response = await runtimeRequest<{ ok: boolean; plan?: FillPlan; prompt?: string; error?: string }>({
         type: "popup-request-plan",
         candidates
       });
@@ -92,9 +95,11 @@ export default function PanelApp(): JSX.Element {
         throw new Error(response.error ?? "生成填充计划失败");
       }
       setFillPlan(response.plan);
+      setLastPrompt(response.prompt ?? null);
       setStatus("ready");
     } catch (err) {
       setStatus("error");
+      setLastPrompt(null);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
@@ -138,6 +143,21 @@ export default function PanelApp(): JSX.Element {
     }
   }
 
+  async function handleCopyPrompt(): Promise<void> {
+    if (!lastPrompt) {
+      return;
+    }
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+      setError("当前环境不支持复制到剪贴板。");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(lastPrompt);
+    } catch (err) {
+      setError(err instanceof Error ? `复制 Prompt 失败：${err.message}` : "复制 Prompt 失败");
+    }
+  }
+
   return (
     <div className="popup">
       <header>
@@ -169,6 +189,9 @@ export default function PanelApp(): JSX.Element {
         </button>
         <button onClick={handleRollback} disabled={status === "applying"}>
           {status === "applying" ? "执行操作中…" : "撤销"}
+        </button>
+        <button onClick={handleCopyPrompt} disabled={!lastPrompt}>
+          复制 Prompt
         </button>
       </div>
 
@@ -257,9 +280,9 @@ function resolvePrimaryHint(candidate: FieldCandidate): string {
   const { hints } = candidate;
   return (
     hints.label ??
-    hints.placeholder ??
-    hints.groupTitle ??
     hints.neighborText ??
+    hints.groupTitle ??
+    hints.placeholder ??
     hints.nameOrId ??
     "未识别名称"
   );

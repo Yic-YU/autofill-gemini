@@ -9,6 +9,7 @@ export interface GeminiConfig {
 
 export interface GeminiCallResult {
   rawText: string;
+  prompt: string;
 }
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
@@ -16,7 +17,7 @@ const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 export async function callGeminiFlash(payload: FlashRequestPayload, config: GeminiConfig): Promise<GeminiCallResult> {
   const prompt = buildPrimaryPrompt(payload);
   const rawText = await postPrompt(prompt, config);
-  return { rawText };
+  return { rawText, prompt };
 }
 
 export async function repairJsonIfNeeded(rawText: string, schemaDescription: string, config: GeminiConfig): Promise<string> {
